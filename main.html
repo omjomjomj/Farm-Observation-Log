@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>🌱 田間觀察日誌（模板C）— 單檔版</title>
+  <meta name="description" content="單一HTML檔，可記錄作物觀察、田間操作、指標與估產、行動清單與媒體，支援本機自動儲存、Markdown 匯出與列印。" />
+  <style>
+    :root {
+      --bg:#0b1020; --card:#111936; --muted:#9fb0ff; --text:#e8ecff; --accent:#7aa2ff; --accent2:#9a7bff;
+      --ok:#87ffb0; --warn:#ffd36b; --red:#ff8ea1; --line:#213162; --chip:#1a2454; --field:#091024;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,Helvetica,Arial;color:var(--text);background:linear-gradient(180deg,#0b1020,#0a0f1c)}
+    .wrap{max-width:1100px;margin:0 auto;padding:20px}
+    header{display:flex;flex-wrap:wrap;align-items:center;gap:12px;justify-content:space-between;margin-bottom:16px}
+    .title{display:flex;align-items:center;gap:10px}
+    h1{font-size:22px;margin:0;letter-spacing:.5px}
+    .badge{font-size:12px;opacity:.8;padding:4px 8px;border-radius:999px;background:var(--chip);border:1px solid var(--line)}
+    .toolbar{display:flex;flex-wrap:wrap;gap:8px}
+    button, .ghost {cursor:pointer;padding:10px 14px;border-radius:12px;border:1px solid var(--line);background:var(--chip);color:var(--text);transition:.15s;box-shadow:0 0 0 rgba(0,0,0,0)}
+    button:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(10,15,40,.3)}
+    button.primary{background:linear-gradient(180deg,#7aa2ff,#9a7bff)}
+    button.warn{background:linear-gradient(180deg,#ffd36b,#ff8ea1);color:#1b1620}
+    .ghost{background:transparent;opacity:.85}
+    .grid{display:grid;gap:12px}
+    .g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+    @media (max-width:860px){.g2,.g3{grid-template-columns:1fr}}
+    section.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:16px}
+    section.card h2{margin:0 0 10px 0;font-size:18px}
+    label{font-size:13px;opacity:.9;display:block;margin:4px 0}
+    input[type="text"], input[type="date"], input[type="time"], input[type="number"], textarea, select{width:100%;padding:10px 12px;border-radius:12px;border:1px solid var(--line);background:var(--field);color:var(--text)}
+    textarea{min-height:84px;resize:vertical}
+    .row{display:flex;gap:10px;align-items:center}
+    .row > *{flex:1}
+    .subtle{font-size:12px;opacity:.75}
+    .hint{font-size:12px;opacity:.85;background:#0e1530;border:1px dashed var(--line);padding:8px 10px;border-radius:12px}
+    .list{display:flex;flex-direction:column;gap:10px}
+    .item{border:1px solid var(--line);background:#0d1530;border-radius:14px;padding:10px}
+    .item .row{align-items:flex-end}
+    .status{font-size:12px;opacity:.7}
+    .right{margin-left:auto}
+    .chips{display:flex;flex-wrap:wrap;gap:6px}
+    .chip{background:var(--chip);border:1px solid var(--line);padding:6px 10px;border-radius:999px;font-size:12px}
+    .kv{display:grid;gap:10px;grid-template-columns:160px 1fr}
+    @media (max-width:700px){.kv{grid-template-columns:1fr}}
+    footer{opacity:.7;padding:20px 0;font-size:12px;text-align:center}
+    .save-ind{font-size:12px;opacity:.75}
+
+    /* Table-like list */
+    .table{display:grid;grid-template-columns:1.2fr .8fr .8fr .8fr auto;gap:8px;align-items:end}
+    .table .th{font-size:12px;opacity:.7}
+    .table .row{display:contents}
+
+    /* Media gallery */
+    .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+    .thumb{position:relative;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+    .thumb img{width:100%;display:block}
+    .thumb .x{position:absolute;top:6px;right:6px;background:rgba(0,0,0,.5);border:1px solid var(--line);color:#fff;border-radius:10px;padding:2px 6px;font-size:12px;cursor:pointer}
+
+    /* Print */
+    @media print{
+      body{background:#fff;color:#000}
+      header .toolbar, .hint, .subtle, .badge, .ghost{display:none !important}
+      section.card{border:1px solid #ccc}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="title">
+        <h1>🌱 田間觀察日誌（模板C）</h1>
+        <span class="badge">Single-file • Auto-save • Markdown Export</span>
+      </div>
+      <div class="toolbar">
+        <button class="primary" id="btnSave">Save</button>
+        <button id="btnExport">Export Markdown</button>
+        <button id="btnPrint">Print</button>
+        <button class="ghost" id="btnDemo">Load Demo</button>
+        <button class="warn" id="btnClear">Clear</button>
+      </div>
+    </header>
+
+    <div class="subtle" id="saveState">尚未儲存</div>
+
+    <!-- Top meta fields -->
+    <section class="card">
+      <h2>基本資訊</h2>
+      <div class="grid g3">
+        <div>
+          <label>日期 Date</label>
+          <input type="date" id="date" />
+        </div>
+        <div>
+          <label>作物 Crop</label>
+          <input type="text" id="crop" placeholder="例：鹿角萵苣 / 火龍果" />
+        </div>
+        <div>
+          <label>區位 Field / Greenhouse</label>
+          <input type="text" id="field" placeholder="例：GH-A 區、試驗畦 #3" />
+        </div>
+        <div>
+          <label>氣候 Weather</label>
+          <input type="text" id="weather" placeholder="例：晴 33℃；相對濕度 70%；風速 2m/s" />
+        </div>
+        <div>
+          <label>生育期 Phenology</label>
+          <select id="phenology">
+            <option value="">— 請選擇 —</option>
+            <option>育苗</option><option>定植</option><option>營養生長</option>
+            <option>開花</option><option>著果/膨大</option><option>轉色/成熟</option>
+            <option>採收</option>
+          </select>
+        </div>
+        <div>
+          <label>病蟲／逆境 Issues</label>
+          <input type="text" id="issues" placeholder="例：白粉病、蚜蟲；高溫、乾旱" />
+        </div>
+      </div>
+      <p class="hint" style="margin-top:10px">提示：以上欄位將作為匯出 Markdown 的標題與標籤依據。</p>
+    </section>
+
+    <!-- 今日觀察 -->
+    <section class="card">
+      <h2>今日觀察</h2>
+      <div class="grid g2">
+        <div>
+          <label>生長狀況</label>
+          <textarea id="obsGrowth" placeholder="例：株高 18–22cm，節間長 3cm，分枝 1–2"></textarea>
+        </div>
+        <div>
+          <label>葉色／葉形</label>
+          <textarea id="obsLeaf" placeholder="例：葉色濃綠；新葉微捲，葉緣完整無缺刻"></textarea>
+        </div>
+        <div>
+          <label>土壤／介質觀感</label>
+          <textarea id="obsSoil" placeholder="例：表層略乾、手觸濕潤；EC 1.2 mS/cm；pH 6.2"></textarea>
+        </div>
+        <div>
+          <label>其他</label>
+          <textarea id="obsOther" placeholder="例：少量捕捉到棘胸蠅；溫室北側遮蔭布鬆脫"></textarea>
+        </div>
+      </div>
+    </section>
+
+    <!-- 今日操作 -->
+    <section class="card">
+      <h2>今日操作</h2>
+      <div class="list" id="opsList"></div>
+      <div class="row" style="margin-top:10px">
+        <button id="addOp">＋ 新增操作</button>
+        <span class="subtle">建議紀錄類型、劑量、時間與備註。</span>
+      </div>
+    </section>
+
+    <!-- 指標與估產 -->
+    <section class="card">
+      <h2>指標 & 估產</h2>
+      <div class="table" id="metTable">
+        <div class="th">指標名稱</div>
+        <div class="th">數值</div>
+        <div class="th">單位</div>
+        <div class="th">時間</div>
+        <div class="th"></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button id="addMetric">＋ 新增量測</button>
+        <input class="right" type="text" id="yieldEst" placeholder="初步估產（例：每畦 8–10kg；誤差 ±10%）" />
+      </div>
+    </section>
+
+    <!-- 行動清單 -->
+    <section class="card">
+      <h2>Action Items（下一步）</h2>
+      <div id="todoList" class="list"></div>
+      <div class="row" style="margin-top:10px">
+        <button id="addTodo">＋ 新增任務</button>
+        <span class="subtle">每個任務可勾選完成狀態並設定到期日。</span>
+      </div>
+    </section>
+
+    <!-- 媒體與連結 -->
+    <section class="card">
+      <h2>媒體</h2>
+      <div class="hint">建議附上雲端連結節省空間（大型媒體不會寫入本機儲存以避免超過瀏覽器上限）。</div>
+      <div class="row" style="margin:10px 0">
+        <input type="file" id="mediaInput" accept="image/*,video/*" multiple />
+        <input type="text" id="refLinks" placeholder="連結（以空白分隔多個 URL）" />
+      </div>
+      <div id="gallery" class="gallery"></div>
+    </section>
+
+    <!-- 自我檢查 -->
+    <section class="card">
+      <h2>Self-check（最小測試）</h2>
+      <div class="row">
+        <button id="btnSelfCheck">Run Self-Check</button>
+        <div class="subtle">會檢查是否含標題、必填欄位（日期、作物）與 Markdown 匯出核心段落。</div>
+      </div>
+      <div id="checkResult" class="hint" style="margin-top:10px"></div>
+    </section>
+
+    <footer>
+      田間觀察日誌（模板C）— 單檔版 • 本機保存（localStorage） • 無需後端 • 由「模板C」轉為互動表單
+    </footer>
+  </div>
+
+  <script>
+  // ===== Utility: date helpers (Asia/Taipei friendly by relying on local time) =====
+  function todayStr(){
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const t = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${t}`;
+  }
+
+  // ===== DOM refs =====
+  const $ = (s,root=document)=>root.querySelector(s);
+  const $$ = (s,root=document)=>Array.from(root.querySelectorAll(s));
+
+  const date = $('#date');
+  const crop = $('#crop');
+  const field = $('#field');
+  const weather = $('#weather');
+  const phenology = $('#phenology');
+  const issues = $('#issues');
+  const obsGrowth = $('#obsGrowth');
+  const obsLeaf = $('#obsLeaf');
+  const obsSoil = $('#obsSoil');
+  const obsOther = $('#obsOther');
+  const opsList = $('#opsList');
+  const metTable = $('#metTable');
+  const yieldEst = $('#yieldEst');
+  const todoList = $('#todoList');
+  const refLinks = $('#refLinks');
+  const mediaInput = $('#mediaInput');
+  const gallery = $('#gallery');
+
+  const btnSave = $('#btnSave');
+  const btnExport = $('#btnExport');
+  const btnPrint = $('#btnPrint');
+  const btnDemo = $('#btnDemo');
+  const btnClear = $('#btnClear');
+  const btnAddOp = $('#addOp');
+  const btnAddMetric = $('#addMetric');
+  const btnAddTodo = $('#addTodo');
+  const btnSelfCheck = $('#btnSelfCheck');
+  const saveState = $('#saveState');
+  const checkResult = $('#checkResult');
+
+  // ===== Auto init =====
+  if(!date.value) date.value = todayStr();
+
+  // ===== Dynamic builders =====
+  function opItem(data={type:'澆灌', dose:'', time:'', notes:''}){
+    const el = document.createElement('div');
+    el.className = 'item';
+    el.innerHTML = `
+      <div class="row">
+        <div>
+          <label>類型</label>
+          <select class="op-type">
+            <option ${data.type==='澆灌'?'selected':''}>澆灌</option>
+            <option ${data.type==='施肥'?'selected':''}>施肥</option>
+            <option ${data.type==='整枝'?'selected':''}>整枝</option>
+            <option ${data.type==='誘殺'?'selected':''}>誘殺</option>
+            <option ${data.type==='環控'?'selected':''}>環控</option>
+            <option ${data.type==='其他'?'selected':''}>其他</option>
+          </select>
+        </div>
+        <div>
+          <label>劑量 / 配方</label>
+          <input type="text" class="op-dose" placeholder="例：A液 1.5mL/L；500mL/株" value="${data.dose||''}">
+        </div>
+        <div>
+          <label>時間</label>
+          <input type="time" class="op-time" value="${data.time||''}">
+        </div>
+        <button class="ghost right op-del">刪除</button>
+      </div>
+      <label>備註</label>
+      <input type="text" class="op-notes" placeholder="例：南側 1–3 畦；葉背均勻噴布" value="${data.notes||''}">
+    `;
+    el.querySelector('.op-del').onclick = ()=>{ el.remove(); touched(); };
+    return el;
+  }
+
+  function metricRow(data={name:'', value:'', unit:'', time:''}){
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.innerHTML = `
+      <input type="text" class="met-name" placeholder="例：EC / pH / 株高 / Brix" value="${data.name||''}">
+      <input type="text" class="met-value" placeholder="數值" value="${data.value||''}">
+      <input type="text" class="met-unit" placeholder="單位（例：mS/cm、cm、°Bx）" value="${data.unit||''}">
+      <input type="time" class="met-time" value="${data.time||''}">
+      <button class="ghost met-del">刪除</button>
+    `;
+    row.querySelector('.met-del').onclick = ()=>{ row.remove(); touched(); };
+    metTable.appendChild(row);
+  }
+
+  function todoItem(data={text:'', due:'', done:false}){
+    const el = document.createElement('div');
+    el.className = 'item';
+    el.innerHTML = `
+      <div class="row">
+        <div style="flex:0 0 auto"><input type="checkbox" class="todo-done" ${data.done? 'checked':''}></div>
+        <input type="text" class="todo-text" placeholder="任務內容" value="${data.text||''}">
+        <input type="date" class="todo-due" value="${data.due||''}">
+        <button class="ghost todo-del">刪除</button>
+      </div>
+    `;
+    el.querySelector('.todo-del').onclick = ()=>{ el.remove(); touched(); };
+    return el;
+  }
+
+  // Seed one row each
+  opsList.appendChild(opItem());
+  metricRow({});
+  todoList.appendChild(todoItem({}));
+
+  // Adders
+  btnAddOp.onclick = ()=>{ opsList.appendChild(opItem()); touched(); };
+  btnAddMetric.onclick = ()=>{ metricRow({}); touched(); };
+  btnAddTodo.onclick = ()=>{ todoList.appendChild(todoItem({})); touched(); };
+
+  // ===== Media handling (preview only; not persisted to localStorage) =====
+  mediaInput.addEventListener('change', async (e)=>{
+    gallery.innerHTML = '';
+    const files = Array.from(e.target.files||[]).slice(0,24);
+    for(const f of files){
+      const url = URL.createObjectURL(f);
+      const box = document.createElement('div');
+      box.className='thumb';
+      let inner = '';
+      if(f.type.startsWith('image/')) inner = `<img alt="${f.name}">`;
+      else inner = `<div style="aspect-ratio:1/1;display:grid;place-items:center;padding:20px">📹 ${f.name}</div>`;
+      box.innerHTML = inner + '<div class="x">×</div>';
+      if(box.firstChild && box.firstChild.tagName==='IMG') box.firstChild.src = url;
+      box.querySelector('.x').onclick = ()=> box.remove();
+      gallery.appendChild(box);
+    }
+  });
+
+  // ===== Save / Load (localStorage) =====
+  const KEY = 'farm-log-v1';
+
+  function serialize(){
+    const ops = $$('.item', opsList).map(it=>({
+      type: $('.op-type', it).value,
+      dose: $('.op-dose', it).value,
+      time: $('.op-time', it).value,
+      notes: $('.op-notes', it).value,
+    }));
+    const mets = [];
+    $$('.row', metTable).forEach(r=>{
+      const n = $('.met-name', r); if(!n) return; // skip header
+      mets.push({
+        name: n.value,
+        value: $('.met-value', r).value,
+        unit: $('.met-unit', r).value,
+        time: $('.met-time', r).value,
+      });
+    });
+    const todos = $$('.item', todoList).map(it=>({
+      done: $('.todo-done', it).checked,
+      text: $('.todo-text', it).value,
+      due: $('.todo-due', it).value,
+    }));
+    return {
+      date: date.value, crop: crop.value, field: field.value,
+      weather: weather.value, phenology: phenology.value, issues: issues.value,
+      obs:{growth:obsGrowth.value, leaf:obsLeaf.value, soil:obsSoil.value, other:obsOther.value},
+      ops, metrics: mets, yieldEst: yieldEst.value, todos,
+      links: (refLinks.value||'').trim(),
+    };
+  }
+
+  function deserialize(d){
+    if(!d) return;
+    date.value = d.date || todayStr();
+    crop.value = d.crop || '';
+    field.value = d.field || '';
+    weather.value = d.weather || '';
+    phenology.value = d.phenology || '';
+    issues.value = d.issues || '';
+    obsGrowth.value = d.obs?.growth || '';
+    obsLeaf.value = d.obs?.leaf || '';
+    obsSoil.value = d.obs?.soil || '';
+    obsOther.value = d.obs?.other || '';
+
+    opsList.innerHTML = '';
+    (d.ops||[]).forEach(o=>opsList.appendChild(opItem(o)));
+    if(!d.ops || d.ops.length===0) opsList.appendChild(opItem({}));
+
+    // Reset metric table (keep header)
+    $$('.row', metTable).forEach((r,i)=>{ if(i>0) r.remove(); });
+    (d.metrics||[]).forEach(m=>metricRow(m));
+    if(!d.metrics || d.metrics.length===0) metricRow({});
+
+    todoList.innerHTML='';
+    (d.todos||[]).forEach(t=>todoList.appendChild(todoItem(t)));
+    if(!d.todos || d.todos.length===0) todoList.appendChild(todoItem({}));
+
+    yieldEst.value = d.yieldEst || '';
+    refLinks.value = d.links || '';
+  }
+
+  function save(){
+    const data = serialize();
+    localStorage.setItem(KEY, JSON.stringify(data));
+    saveState.textContent = '已儲存於本機：' + new Date().toLocaleString();
+  }
+
+  function load(){
+    const raw = localStorage.getItem(KEY);
+    if(!raw) return;
+    try{ deserialize(JSON.parse(raw)); saveState.textContent = '已載入本機草稿'; }
+    catch(err){ console.error(err); }
+  }
+
+  function clearAll(){
+    if(confirm('清空所有欄位並刪除本機儲存？')){
+      localStorage.removeItem(KEY);
+      location.reload();
+    }
+  }
+
+  btnSave.onclick = save;
+  btnClear.onclick = clearAll;
+  btnPrint.onclick = ()=> window.print();
+
+  // Auto-save (debounced)
+  let timer;
+  function touched(){
+    saveState.textContent = '變更未儲存…';
+    clearTimeout(timer);
+    timer = setTimeout(save, 800);
+  }
+  document.addEventListener('input', touched, true);
+  document.addEventListener('change', touched, true);
+
+  // ===== Markdown Export =====
+  function toMarkdown(){
+    const d = serialize();
+    if(!d.date || !d.crop){
+      alert('請先填寫「日期」與「作物」，再匯出 Markdown');
+      return '';
+    }
+    const head = `# 🌱 田間觀察 — ${d.date}\n**Crop（作物）**： ${d.crop}  \n**Field / Greenhouse（區位）**： ${d.field||''}  \n**Weather（氣候）**： ${d.weather||''}  \n**Phenology（生育期）**： ${d.phenology||''}  \n**Issues（病蟲／逆境）**： ${d.issues||''}`;
+
+    const obs = `\n\n## 今日觀察\n- 生長狀況：${d.obs.growth||''}\n- 葉色／葉形：${d.obs.leaf||''}\n- 土壤／介質觀感：${d.obs.soil||''}\n- 其他：${d.obs.other||''}`;
+
+    const ops = d.ops.map(o=>`- ${o.type}｜${o.dose||''}｜${o.time||''}｜${o.notes||''}`).join('\n');
+    const opsSec = `\n\n## 今日操作\n${ops || '- （無）'}`;
+
+    const met = d.metrics.map(m=>`- ${m.name||''}：${m.value||''} ${m.unit||''}（${m.time||''}）`).join('\n');
+    const metSec = `\n\n## 指標 & 估產\n${met || '- （無）'}\n- 初步估產：${d.yieldEst||''}`;
+
+    const todos = d.todos.map(t=>`- [${t.done?'x':' '}] ${t.text||''}（Due：${t.due||''}）`).join('\n');
+    const todoSec = `\n\n## Action Items（下一步）\n${todos || '- [ ] （無）'}`;
+
+    const media = `\n\n## 媒體\n${(d.links||'').split(/\s+/).filter(Boolean).map(u=>`- ${u}`).join('\n') || '- （貼上照片 / 影片 / 感測圖表連結）'}`;
+
+    return [head, obs, opsSec, metSec, todoSec, media].join('\n');
+  }
+
+  btnExport.onclick = ()=>{
+    const md = toMarkdown();
+    if(!md) return;
+    const blob = new Blob([md], {type:'text/markdown;charset=utf-8'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    const name = `farm-log_${date.value||todayStr()}_${(crop.value||'crop').replace(/\s+/g,'-')}.md`;
+    a.download = name;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  // ===== Demo data for quick trial =====
+  btnDemo.onclick = ()=>{
+    const demo = {
+      date: todayStr(), crop:'鹿角萵苣', field:'GH-A 試驗畦 #3',
+      weather:'晴 33℃；RH 70%；風 2m/s', phenology:'營養生長', issues:'蚜蟲少量；午後高溫',
+      obs:{growth:'株高 20cm，節間 2.8–3.2cm；側芽 1–2。', leaf:'葉色均一濃綠；新葉微捲。', soil:'表層略乾；EC 1.2 mS/cm；pH 6.2。', other:'北側遮蔭布鬆脫，已暫時固定。'},
+      ops:[{type:'澆灌', dose:'500mL/株', time:'09:30', notes:'南側 1–3 畦'}, {type:'施肥', dose:'A液 1.5mL/L', time:'09:40', notes:'隨水均勻供給'}],
+      metrics:[{name:'EC', value:'1.2', unit:'mS/cm', time:'10:00'},{name:'pH', value:'6.2', unit:'', time:'10:00'},{name:'株高', value:'20', unit:'cm', time:'10:05'}],
+      yieldEst:'每畦 8–10 kg；誤差 ±10%',
+      todos:[{text:'更換北側遮蔭布扣具', due: todayStr(), done:false},{text:'下週複查蚜蟲密度', due: todayStr(), done:false}],
+      links:'https://example.com/sensor/ec https://example.com/photos/2025-08-23'
+    };
+    deserialize(demo); touched();
+  };
+
+  // ===== Self-check (minimal tests) =====
+  btnSelfCheck.onclick = ()=>{
+    const md = toMarkdown();
+    if(!md){ checkResult.textContent = '❌ 缺少必填欄位'; return; }
+    const must = ['# 🌱 田間觀察 —', '## 今日觀察', '## 今日操作', '## 指標 & 估產', '## Action Items（下一步）', '## 媒體'];
+    const miss = must.filter(m=>!md.includes(m));
+    if(miss.length){
+      checkResult.textContent = '⚠️ 檢查未通過，缺少段落：' + miss.join('、');
+    }else{
+      checkResult.textContent = '✅ 檢查通過：Markdown 結構完整';
+    }
+  };
+
+  // Load persisted data on start
+  load();
+  </script>
+</body>
+</html>
